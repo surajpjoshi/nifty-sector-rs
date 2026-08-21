@@ -8,7 +8,7 @@ import pandas as pd
 import requests
 
 
-ACCESS_TOKEN = os.environ["UPSTOX_ACCESS_TOKEN"]
+ACCESS_TOKEN = os.environ["UPSTOX_ANALYTICS_TOKEN"]
 
 BASE_URL = "https://api.upstox.com/v3/historical-candle"
 
