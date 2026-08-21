@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Nifty Sector Relative Strength</title>
+
+    <link
+        rel="stylesheet"
+        href="styles.css"
+    >
+</head>
+
+<body>
+
+<div class="app">
+
+    <header class="topbar">
+
+        <div>
+            <div class="eyebrow">
+                MARKET INTELLIGENCE
+            </div>
+
+            <h1>
+                Nifty Sector Relative Strength
+            </h1>
+
+            <p id="lastUpdated">
+                Loading latest data...
+            </p>
+        </div>
+
+        <div class="header-stats">
+
+            <div class="header-stat">
+                <span>Stocks</span>
+                <strong id="stockCount">—</strong>
+            </div>
+
+            <div class="header-stat">
+                <span>Indexes</span>
+                <strong id="sectorCount">—</strong>
+            </div>
+
+            <div class="header-stat">
+                <span>Data</span>
+                <strong id="dataStatus">Loading</strong>
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <main>
+
+        <!-- TOP SECTORS -->
+
+        <section class="section">
+
+            <div class="section-heading">
+
+                <div>
+                    <span class="section-label">
+                        LEADERSHIP
+                    </span>
+
+                    <h2>
+                        Top Index / Sectors
+                    </h2>
+                </div>
+
+                <div class="section-note">
+                    Ranked by average 3M RS
+                </div>
+
+            </div>
+
+
+            <div
+                id="sectorCards"
+                class="sector-grid"
+            >
+                <div class="loading">
+                    Loading sectors...
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- STOCK AREA -->
+
+        <section class="section">
+
+            <div class="section-heading">
+
+                <div>
+                    <span class="section-label">
+                        STOCKS
+                    </span>
+
+                    <h2>
+                        Relative Strength Scanner
+                    </h2>
+                </div>
+
+            </div>
+
+
+            <div class="filters">
+
+                <div class="search-box">
+
+                    <input
+                        id="searchInput"
+                        type="text"
+                        placeholder="Search stock or company..."
+                    >
+
+                </div>
+
+
+                <select id="sectorFilter">
+
+                    <option value="ALL">
+                        All Index / Sectors
+                    </option>
+
+                </select>
+
+
+                <select id="periodFilter">
+
+                    <option value="RS">
+                        RS 3M
+                    </option>
+
+                    <option value="1M">
+                        1M
+                    </option>
+
+                    <option value="3M">
+                        3M Return
+                    </option>
+
+                    <option value="6M">
+                        6M
+                    </option>
+
+                    <option value="YTD">
+                        YTD
+                    </option>
+
+                    <option value="Daily">
+                        Daily
+                    </option>
+
+                    <option value="Weekly">
+                        Weekly
+                    </option>
+
+                </select>
+
+
+                <button
+                    id="clearFilters"
+                    class="clear-button"
+                >
+                    Clear
+                </button>
+
+            </div>
+
+
+            <div class="table-wrap">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>#</th>
+
+                            <th
+                                data-sort="Symbol"
+                                class="sortable"
+                            >
+                                Stock
+                            </th>
+
+                            <th
+                                data-sort="Company Name"
+                                class="sortable"
+                            >
+                                Company
+                            </th>
+
+                            <th>Index / Sector</th>
+
+                            <th
+                                data-sort="Daily"
+                                class="sortable numeric"
+                            >
+                                Daily
+                            </th>
+
+                            <th
+                                data-sort="Weekly"
+                                class="sortable numeric"
+                            >
+                                Weekly
+                            </th>
+
+                            <th
+                                data-sort="1M"
+                                class="sortable numeric"
+                            >
+                                1M
+                            </th>
+
+                            <th
+                                data-sort="3M"
+                                class="sortable numeric"
+                            >
+                                3M
+                            </th>
+
+                            <th
+                                data-sort="6M"
+                                class="sortable numeric"
+                            >
+                                6M
+                            </th>
+
+                            <th
+                                data-sort="YTD"
+                                class="sortable numeric"
+                            >
+                                YTD
+                            </th>
+
+                            <th
+                                data-sort="RS"
+                                class="sortable numeric"
+                            >
+                                RS 3M
+                            </th>
+
+                            <th>Chart</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="stockTableBody">
+
+                        <tr>
+
+                            <td
+                                colspan="12"
+                                class="loading"
+                            >
+                                Loading stocks...
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            <div
+                id="resultCount"
+                class="result-count"
+            ></div>
+
+        </section>
+
+    </main>
+
+
+    <footer>
+
+        <span>
+            Nifty Sector RS
+        </span>
+
+        <span>
+            Data powered by Upstox
+        </span>
+
+    </footer>
+
+</div>
+
+
+<script src="app.js"></script>
+
+</body>
+</html>
