@@ -232,7 +232,8 @@ button {
 table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1150px;
+    min-width: 1080px;
+    table-layout: fixed;
 }
 
 thead {
@@ -241,7 +242,7 @@ thead {
 
 th {
     text-align: left;
-    padding: 12px 13px;
+    padding: 10px 8px;
     font-size: 11px;
     color: var(--muted);
     font-weight: 700;
@@ -250,7 +251,7 @@ th {
 }
 
 td {
-    padding: 12px 13px;
+    padding: 10px 8px;
     border-bottom: 1px solid #f0f2f5;
     font-size: 13px;
     white-space: nowrap;
@@ -277,7 +278,7 @@ tbody tr:hover {
 }
 
 .company-name {
-    max-width: 250px;
+    max-width: 190px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -375,10 +376,36 @@ footer {
 
 .sector-memberships {
     white-space: normal;
-    min-width: 220px;
-    max-width: 360px;
+    min-width: 180px;
+    max-width: 250px;
+    line-height: 1.7;
 }
 
 .sector-memberships .sector-tag {
-    margin: 2px 4px 2px 0;
+    margin: 1px 2px 1px 0;
+    padding: 3px 5px;
+    font-size: 9px;
+}
+
+
+th.numeric,
+td.numeric {
+    width: 68px;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+table th:first-child,
+table td:first-child {
+    width: 35px;
+}
+
+table th:last-child,
+table td:last-child {
+    width: 58px;
+}
+
+.chart-link {
+    padding: 4px 7px;
+    font-size: 10px;
 }

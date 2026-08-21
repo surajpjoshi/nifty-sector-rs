@@ -72,8 +72,16 @@ async function loadData() {
         sectors =
             await sectorResponse.json();
 
+        const uniqueStockCount =
+          new Set(
+           stocks.map(stock =>
+            stock["ISIN Code"] ||
+            stock.Symbol
+           )
+        ).size;
+
         stockCount.textContent =
-            stocks.length.toLocaleString();
+          uniqueStockCount.toLocaleString();
 
         sectorCount.textContent =
             sectors.length;
