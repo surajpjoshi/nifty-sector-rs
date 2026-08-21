@@ -303,6 +303,49 @@ function renderSectorCards() {
 }
 
 
+function getAllStockSectors(stock) {
+
+    const isin =
+        stock["ISIN Code"];
+
+    const symbol =
+        stock.Symbol;
+
+
+    const memberships =
+        stocks
+            .filter(row => {
+
+                if (
+                    isin &&
+                    row["ISIN Code"]
+                ) {
+
+                    return (
+                        row["ISIN Code"] ===
+                        isin
+                    );
+
+                }
+
+                return (
+                    row.Symbol ===
+                    symbol
+                );
+
+            })
+            .map(
+                row => row.Sector
+            )
+            .filter(Boolean);
+
+
+    return [
+        ...new Set(memberships)
+    ];
+}
+
+
 function applyFilters() {
 
     const search =
@@ -313,48 +356,124 @@ function applyFilters() {
     const selectedSector =
         sectorFilter.value;
 
-    filteredStocks =
-        stocks.filter(
-            stock => {
 
-                const symbol =
-                    String(
-                        stock.Symbol || ""
-                    ).toLowerCase();
+    // --------------------------------------------------
+    // STEP 1
+    // Apply sector + search filters to original rows
+    // --------------------------------------------------
 
-                const company =
-                    String(
-                        stock[
-                            "Company Name"
-                        ] || ""
-                    ).toLowerCase();
+    let matchingRows =
+        stocks.filter(stock => {
 
-                const sector =
-                    String(
-                        stock.Sector || ""
-                    );
+            const symbol =
+                String(
+                    stock.Symbol || ""
+                ).toLowerCase();
 
-                const matchesSearch =
-                    !search ||
-                    symbol.includes(search) ||
-                    company.includes(search);
+            const company =
+                String(
+                    stock["Company Name"] || ""
+                ).toLowerCase();
 
-                const matchesSector =
-                    selectedSector === "ALL" ||
-                    sector === selectedSector;
-
-                return (
-                    matchesSearch &&
-                    matchesSector
+            const sector =
+                String(
+                    stock.Sector || ""
                 );
+
+            const matchesSearch =
+                !search ||
+                symbol.includes(search) ||
+                company.includes(search);
+
+            const matchesSector =
+                selectedSector === "ALL" ||
+                sector === selectedSector;
+
+            return (
+                matchesSearch &&
+                matchesSector
+            );
+        });
+
+
+    // --------------------------------------------------
+    // STEP 2
+    // Combine duplicate stock memberships
+    //
+    // Example:
+    // AEGISLOG niftyenergy
+    // AEGISLOG niftyoilgas
+    // AEGISLOG nifty500
+    //
+    // becomes ONE stock row.
+    // --------------------------------------------------
+
+    const stockMap = new Map();
+
+
+    matchingRows.forEach(stock => {
+
+        const key =
+            stock["ISIN Code"] ||
+            stock.Symbol;
+
+        if (!key) {
+            return;
+        }
+
+
+        if (!stockMap.has(key)) {
+
+            stockMap.set(
+                key,
+                {
+                    ...stock,
+
+                    _sectors: new Set(
+                        getAllStockSectors(stock)
+                   )
+                }
+            );
+
+        } else {
+
+            const existing =
+                stockMap.get(key);
+
+            if (stock.Sector) {
+
+                existing._sectors.add(
+                    stock.Sector
+                );
+
             }
-        );
+
+        }
+
+    });
+
+
+    filteredStocks =
+        Array.from(
+            stockMap.values()
+        ).map(stock => {
+
+            return {
+                ...stock,
+
+                Sector:
+                    Array.from(
+                        stock._sectors
+                    ).join(" • ")
+            };
+
+        });
+
 
     sortStocks();
 
     renderStockTable();
 }
-
 
 function sortStocks() {
 

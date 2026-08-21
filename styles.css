@@ -372,3 +372,13 @@ footer {
     }
 
 }
+
+.sector-memberships {
+    white-space: normal;
+    min-width: 220px;
+    max-width: 360px;
+}
+
+.sector-memberships .sector-tag {
+    margin: 2px 4px 2px 0;
+}
