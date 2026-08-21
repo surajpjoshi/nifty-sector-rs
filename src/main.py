@@ -2,7 +2,8 @@ import os
 import json
 import time
 import gzip
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
@@ -11,6 +12,8 @@ import requests
 ACCESS_TOKEN = os.environ["UPSTOX_ANALYTICS_TOKEN"]
 
 BASE_URL = "https://api.upstox.com/v3/historical-candle"
+LTP_URL = "https://api.upstox.com/v3/market-quote/ltp"
+IST = ZoneInfo("Asia/Kolkata")
 
 # Upstox official NSE BOD instrument file.
 INSTRUMENT_MASTER_URL = (
@@ -198,6 +201,292 @@ def get_daily_candles(
     )
 
     return df
+
+
+
+def fetch_ltp_quotes(instrument_mapping):
+    """
+    Fetch live LTP / previous close for mapped NSE equity instruments.
+
+    Important:
+    The response can contain more quote objects than our requested
+    equity universe. We therefore only accept quotes whose instrument
+    key was explicitly requested and keep exactly one quote per ISIN.
+    """
+    quotes = {}
+
+    instrument_items = []
+
+    for isin, mapped in instrument_mapping.items():
+        instrument_key = str(
+            mapped.get("instrument_key", "")
+        ).strip()
+
+        if instrument_key:
+            instrument_items.append(
+                (
+                    str(isin).strip().upper(),
+                    instrument_key,
+                )
+            )
+
+    # Keep one requested instrument per ISIN.
+    unique_items = {}
+    for isin, instrument_key in instrument_items:
+        unique_items[isin] = instrument_key
+
+    instrument_items = list(
+        unique_items.items()
+    )
+
+    # Upstox supports up to 500 instruments per request.
+    batch_size = 500
+
+    print()
+    print("=" * 70)
+    print("FETCHING LIVE LTP")
+    print("=" * 70)
+    print(
+        "Requested instruments:",
+        len(instrument_items),
+    )
+
+    fetched_at = datetime.now(
+        IST
+    ).isoformat(
+        timespec="seconds"
+    )
+
+    for start in range(
+        0,
+        len(instrument_items),
+        batch_size,
+    ):
+
+        batch = instrument_items[
+            start:start + batch_size
+        ]
+
+        requested_keys = {
+            instrument_key
+            for _, instrument_key in batch
+        }
+
+        print(
+            f"LTP batch "
+            f"{start + 1}-"
+            f"{start + len(batch)}"
+        )
+
+        try:
+
+            response = requests.get(
+                LTP_URL,
+                headers=get_headers(),
+                params={
+                    "instrument_key": ",".join(
+                        requested_keys
+                    )
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
+
+            if response.status_code != 200:
+
+                print(
+                    "  LTP API error:",
+                    response.status_code,
+                    response.text[:500],
+                )
+
+                continue
+
+            data = response.json().get(
+                "data",
+                {}
+            )
+
+            # Build an exact normalized instrument-key lookup.
+            requested_lookup = {}
+
+            for isin, instrument_key in batch:
+
+                normalized_key = (
+                    instrument_key
+                    .strip()
+                    .replace(":", "|")
+                )
+
+                requested_lookup[
+                    normalized_key
+                ] = isin
+
+            batch_quotes = 0
+
+            for response_key, quote in data.items():
+
+                response_key = str(
+                    response_key
+                ).strip()
+
+                instrument_token = str(
+                    quote.get(
+                        "instrument_token",
+                        response_key,
+                    )
+                ).strip()
+
+                # Prefer the actual instrument_token returned
+                # by Upstox, then fall back to the response key.
+                candidates = [
+                    instrument_token,
+                    response_key,
+                    instrument_token.replace(
+                        ":",
+                        "|",
+                    ),
+                    response_key.replace(
+                        ":",
+                        "|",
+                    ),
+                ]
+
+                isin = None
+
+                for candidate in candidates:
+
+                    normalized = candidate.replace(
+                        ":",
+                        "|",
+                    )
+
+                    if normalized in requested_lookup:
+
+                        isin = requested_lookup[
+                            normalized
+                        ]
+
+                        break
+
+                # CRITICAL:
+                # Ignore any quote not belonging to the requested
+                # 500-instrument batch.
+                if not isin:
+                    continue
+
+                # Never allow duplicate quote records for an ISIN.
+                if isin in quotes:
+                    continue
+
+                last_price = quote.get(
+                    "last_price"
+                )
+
+                previous_close = quote.get(
+                    "cp"
+                )
+
+                change_pct = None
+
+                if (
+                    last_price is not None
+                    and previous_close is not None
+                ):
+
+                    try:
+
+                        previous_close_float = float(
+                            previous_close
+                        )
+
+                        if (
+                            previous_close_float
+                            != 0
+                        ):
+
+                            change_pct = (
+                                (
+                                    float(
+                                        last_price
+                                    )
+                                    /
+                                    previous_close_float
+                                ) - 1
+                            ) * 100
+
+                    except (
+                        TypeError,
+                        ValueError,
+                    ):
+                        change_pct = None
+
+                quotes[isin] = {
+
+                    "LTP":
+                        clean_number(
+                            last_price
+                        ),
+
+                    "Previous Close":
+                        clean_number(
+                            previous_close
+                        ),
+
+                    "LTP Change %":
+                        clean_number(
+                            change_pct
+                        ),
+
+                    "LTP Volume":
+                        quote.get(
+                            "volume"
+                        ),
+
+                    "LTP Last Traded Qty":
+                        quote.get(
+                            "ltq"
+                        ),
+
+                    "LTP Fetch Time":
+                        fetched_at,
+                }
+
+                batch_quotes += 1
+
+            print(
+                "  Quotes matched:",
+                batch_quotes,
+            )
+
+        except Exception as error:
+
+            print(
+                "  LTP batch ERROR:",
+                error,
+            )
+
+        time.sleep(
+            REQUEST_DELAY
+        )
+
+    print()
+    print(
+        "LTP quotes received:",
+        len(quotes),
+    )
+
+    print(
+        "LTP instruments missing:",
+        max(
+            0,
+            len(instrument_items)
+            - len(quotes),
+        ),
+    )
+
+    print("=" * 70)
+
+    return quotes, fetched_at
 
 
 def calculate_return(df, periods):
@@ -437,6 +726,7 @@ def process_stock(
     to_date,
     nifty_returns,
     instrument_mapping,
+    ltp_quotes,
 ):
 
     symbol = str(
@@ -556,6 +846,46 @@ def process_stock(
         "Upstox Instrument Key":
             instrument_key,
 
+        "Data Date": (
+            str(df.iloc[-1]["date"])
+            if not df.empty
+            else ""
+        ),
+
+        "LTP": (
+            ltp_quotes.get(isin, {}).get("LTP")
+        ),
+
+        "Previous Close": (
+            ltp_quotes.get(isin, {}).get(
+                "Previous Close"
+            )
+        ),
+
+        "LTP Change %": (
+            ltp_quotes.get(isin, {}).get(
+                "LTP Change %"
+            )
+        ),
+
+        "LTP Volume": (
+            ltp_quotes.get(isin, {}).get(
+                "LTP Volume"
+            )
+        ),
+
+        "LTP Last Traded Qty": (
+            ltp_quotes.get(isin, {}).get(
+                "LTP Last Traded Qty"
+            )
+        ),
+
+        "LTP Fetch Time": (
+            ltp_quotes.get(isin, {}).get(
+                "LTP Fetch Time"
+            )
+        ),
+
         "Status": "OK",
     }
 
@@ -634,7 +964,13 @@ def main():
     )
     print("=" * 70)
 
-    today = date.today()
+    now_ist = datetime.now(IST)
+    today = now_ist.date()
+
+    print(
+        "Workflow fetch time (IST):",
+        now_ist.isoformat(timespec="seconds"),
+    )
 
     from_date = (
         today
@@ -696,6 +1032,42 @@ def main():
         instrument_mapping,
     )
 
+    # Only fetch LTP for instruments that actually exist
+# in our master stock list.
+    # Restrict live LTP requests to the 536 ISINs in our stock master.
+    # instrument_mapping contains the full NSE universe (~2872 instruments).
+    master_isins = set(
+        unique_stocks["ISIN Code"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+
+    ltp_instrument_mapping = {
+        isin: instrument_mapping[isin]
+        for isin in master_isins
+        if isin in instrument_mapping
+    }
+
+    print(
+        "LTP instrument universe:",
+        len(ltp_instrument_mapping)
+    )
+
+    ltp_quotes, ltp_fetch_time = fetch_ltp_quotes(
+        ltp_instrument_mapping
+    )
+
+    # Safety check: LTP data must never exceed the unique
+    # instrument universe we requested.
+    if len(ltp_quotes) > len(ltp_instrument_mapping):
+        raise RuntimeError(
+            "LTP mapping error: received more unique "
+            "quotes than unique ISINs. "
+            f"ISINs={len(ltp_instrument_mapping)}, "
+            f"LTP quotes={len(ltp_quotes)}"
+        )
+
     nifty_returns = (
         fetch_nifty_return(
             from_date_str,
@@ -745,6 +1117,7 @@ def main():
                 to_date_str,
                 nifty_returns,
                 instrument_mapping,
+                ltp_quotes,
             )
 
             if result.get(
@@ -787,6 +1160,12 @@ def main():
 
     final_results = []
 
+    # Common dashboard metadata. LTP fetch time is the exact time the
+    # live quote request completed in India Standard Time.
+    dashboard_metadata = {
+        "Last Fetch": ltp_fetch_time,
+    }
+
     for _, row in stocks.iterrows():
 
         isin = str(
@@ -806,6 +1185,9 @@ def main():
                     "NSE Symbol",
                     "",
                 ),
+
+            "Last Fetch":
+                dashboard_metadata["Last Fetch"],
         }
 
         stock_result = (
@@ -854,6 +1236,42 @@ def main():
                     stock_result.get(
                         "Upstox Instrument Key"
                     ),
+
+                "Data Date":
+                    stock_result.get(
+                        "Data Date"
+                    ),
+
+                "LTP":
+                    stock_result.get(
+                        "LTP"
+                    ),
+
+                "Previous Close":
+                    stock_result.get(
+                        "Previous Close"
+                    ),
+
+                "LTP Change %":
+                    stock_result.get(
+                        "LTP Change %"
+                    ),
+
+                "LTP Volume":
+                    stock_result.get(
+                        "LTP Volume"
+                    ),
+
+                "LTP Last Traded Qty":
+                    stock_result.get(
+                        "LTP Last Traded Qty"
+                    ),
+
+                "LTP Fetch Time":
+                    stock_result.get(
+                        "LTP Fetch Time"
+                    ),
+
                 "Status": "OK",
             }
 
@@ -887,6 +1305,28 @@ def main():
                     None,
                 "Upstox Instrument Key":
                     "",
+
+                "Data Date":
+                    "",
+
+                "LTP":
+                    None,
+
+                "Previous Close":
+                    None,
+
+                "LTP Change %":
+                    None,
+
+                "LTP Volume":
+                    None,
+
+                "LTP Last Traded Qty":
+                    None,
+
+                "LTP Fetch Time":
+                    ltp_fetch_time,
+
                 "Status":
                     (
                         error_info["Error"]
@@ -936,6 +1376,14 @@ def main():
     print(
         "Errors          :",
         failed,
+    )
+    print(
+        "LTP Quotes      :",
+        len(ltp_quotes),
+    )
+    print(
+        "Last Fetch (IST):",
+        ltp_fetch_time,
     )
     print("=" * 70)
 

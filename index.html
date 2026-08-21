@@ -33,6 +33,9 @@
             <p id="lastUpdated">
                 Loading latest data...
             </p>
+            <p id="fetchInfo" class="fetch-info">
+                LTP: loading...
+            </p>
         </div>
 
         <div class="header-stats">
@@ -50,6 +53,25 @@
             <div class="header-stat">
                 <span>Data</span>
                 <strong id="dataStatus">Loading</strong>
+
+
+            <div class="header-stat">
+              <span>LTP Coverage</span>
+              <strong id="ltpCoverage">—</strong>
+            </div>
+
+            <p id="lastUpdated">
+
+
+          <p id="fetchInfo" class="fetch-info">
+            LTP: loading...
+               </p>
+
+            </div>
+
+            <div class="header-stat">
+                <span>LTP Coverage</span>
+                <strong id="ltpCoverage">—</strong>
             </div>
 
         </div>
@@ -253,6 +275,13 @@
                                 RS 3M
                             </th>
 
+                            <th
+                                data-sort="LTP"
+                                class="sortable numeric"
+                            >
+                                LTP
+                            </th>
+
                             <th>Chart</th>
 
                         </tr>
@@ -264,7 +293,7 @@
                         <tr>
 
                             <td
-                                colspan="12"
+                                colspan="13"
                                 class="loading"
                             >
                                 Loading stocks...

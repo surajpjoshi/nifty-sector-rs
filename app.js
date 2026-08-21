@@ -1,4 +1,4 @@
-const STOCK_URL = "data/stock_rs.json";
+﻿const STOCK_URL = "data/stock_rs.json";
 const SECTOR_URL = "data/sector_summary.json";
 
 let stocks = [];
@@ -33,6 +33,12 @@ const resultCount =
 
 const lastUpdated =
     document.getElementById("lastUpdated");
+
+const fetchInfo =
+    document.getElementById("fetchInfo");
+
+const ltpCoverage =
+    document.getElementById("ltpCoverage");
 
 
 async function loadData() {
@@ -136,19 +142,180 @@ async function loadData() {
 }
 
 
+function findFirstValue(objects, keys) {
+    for (const obj of objects) {
+        if (!obj || typeof obj !== "object") continue;
+
+        for (const key of keys) {
+            if (
+                Object.prototype.hasOwnProperty.call(obj, key) &&
+                obj[key] !== null &&
+                obj[key] !== undefined &&
+                String(obj[key]).trim() !== ""
+            ) {
+                return obj[key];
+            }
+        }
+    }
+
+    return null;
+}
+
+
+function getFetchTimestamp() {
+    return findFirstValue(stocks, [
+        "Last Fetch",
+        "Last Fetch (IST)",
+        "Last Fetch IST",
+        "LTP Fetch Time",
+        "LTP Fetch Time (IST)",
+        "Fetch Time",
+        "Fetched At",
+        "Fetched At (IST)",
+        "last_fetch",
+        "last_fetch_ist",
+        "fetch_time"
+    ]);
+}
+
+
+function getLtp(stock) {
+    const keys = [
+        "LTP",
+        "ltp",
+        "Last Traded Price",
+        "Last Price",
+        "last_price"
+    ];
+
+    for (const key of keys) {
+        if (
+            Object.prototype.hasOwnProperty.call(stock, key) &&
+            stock[key] !== null &&
+            stock[key] !== undefined &&
+            String(stock[key]).trim() !== ""
+        ) {
+            const value = Number(stock[key]);
+
+            if (Number.isFinite(value)) {
+                return value;
+            }
+        }
+    }
+
+    return null;
+}
+
+
+function formatLtp(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        !Number.isFinite(Number(value))
+    ) {
+        return "â€”";
+    }
+
+    return Number(value).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+
+function formatFetchTime(value) {
+    if (!value) return null;
+
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return String(value);
+    }
+
+    return parsed.toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        dateStyle: "medium",
+        timeStyle: "short"
+    }) + " IST";
+}
+
+
 function updateDate() {
 
-    const now = new Date();
+    const fetchTimestamp =
+        getFetchTimestamp();
 
-    lastUpdated.textContent =
-        "Dashboard data • " +
-        now.toLocaleString(
-            "en-IN",
-            {
-                dateStyle: "medium",
-                timeStyle: "short"
+    if (fetchTimestamp) {
+
+        const formatted =
+            formatFetchTime(fetchTimestamp);
+
+        lastUpdated.textContent =
+            "Last fetch • " + formatted;
+
+        if (fetchInfo) {
+            fetchInfo.textContent =
+                "LTP fetched • " + formatted;
+        }
+
+    } else {
+
+        lastUpdated.textContent =
+            "Fetch timestamp unavailable";
+
+        if (fetchInfo) {
+            fetchInfo.textContent =
+                "LTP timestamp unavailable";
+        }
+    }
+
+
+    /*
+     * Calculate LTP coverage.
+     *
+     * We count unique ISINs/stocks so repeated
+     * sector memberships don't inflate the number.
+     */
+
+    if (ltpCoverage) {
+
+        const uniqueStocks =
+            new Map();
+
+        stocks.forEach(stock => {
+
+            const identity =
+                stock["ISIN Code"] ||
+                stock.Symbol ||
+                stock["Symbol"];
+
+            if (!identity) return;
+
+            if (!uniqueStocks.has(identity)) {
+                uniqueStocks.set(
+                    identity,
+                    stock
+                );
             }
-        );
+        });
+
+
+        let available = 0;
+
+        uniqueStocks.forEach(stock => {
+
+            if (
+                getLtp(stock) !== null
+            ) {
+                available++;
+            }
+
+        });
+
+
+        ltpCoverage.textContent =
+            `${available.toLocaleString()} / ${uniqueStocks.size.toLocaleString()}`;
+    }
 }
 
 
@@ -257,7 +424,7 @@ function renderSectorCards() {
                             ${escapeHtml(
                                 sector[
                                     "Top Stock"
-                                ] || "—"
+                                ] || "â€”"
                             )}
                         </span>
 
@@ -662,8 +829,8 @@ function renderTopSectorPanel(
 ) {
 
     const medals = [
-        "🥇",
-        "🥈"
+        "ðŸ¥‡",
+        "ðŸ¥ˆ"
     ];
 
     const rows =
@@ -712,7 +879,7 @@ function renderTopSectorPanel(
                                 ${escapeHtml(
                                     stock[
                                         "Company Name"
-                                    ] || "—"
+                                    ] || "â€”"
                                 )}
                             </td>
 
@@ -1392,7 +1559,7 @@ function renderStockTable() {
                                 ${escapeHtml(
                                     stock[
                                         "Company Name"
-                                    ] || "—"
+                                    ] || "â€”"
                                 )}
                             </td>
 
@@ -1465,6 +1632,13 @@ function renderStockTable() {
                                 </strong>
                             </td>
 
+
+                            <td class="numeric ltp-cell">
+                                <strong>
+                                    ${formatLtp(getLtp(stock))}
+                                </strong>
+                            </td>
+
                             <td>
                                 <a
                                     class="chart-link"
@@ -1506,7 +1680,7 @@ function formatPercent(value) {
         Number.isNaN(value) ||
         !Number.isFinite(value)
     ) {
-        return "—";
+        return "â€”";
     }
 
     const sign =
@@ -1676,3 +1850,6 @@ document
 
 
 loadData();
+
+
+
