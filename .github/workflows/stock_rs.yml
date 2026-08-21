@@ -30,6 +30,12 @@ jobs:
         run: |
           python src/main.py
 
+
+      - name: Build index and sector summary
+        run: |
+          python src/build_sector_summary.py
+
+
       - name: Show generated files
         run: |
           echo "Generated files:"
@@ -40,7 +46,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add data/stock_rs.csv data/stock_rs.json
+          git add data/stock_rs.csv data/stock_rs.json data/sector_summary.csv data/sector_summary.json data/errors.csv data/instrument_mapping.csv
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
