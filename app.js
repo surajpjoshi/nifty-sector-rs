@@ -600,6 +600,29 @@ function renderStockTable() {
                         ) +
                         ".html";
 
+                    // Build sector display with first 3 tags + "+N more"
+                    const sectors = String(stock.Sector || "")
+                        .split(" • ")
+                        .map(s => s.trim())
+                        .filter(Boolean);
+
+                    const visibleSectors = sectors.slice(0, 3);
+                    const extraCount = Math.max(0, sectors.length - 3);
+
+                    const sectorHtml = `
+                        <div class="sector-memberships"
+                             title="${escapeHtml(sectors.join(" • "))}">
+                            ${visibleSectors.map(sector => `
+                                <span class="sector-tag">
+                                    ${escapeHtml(sector)}
+                                </span>
+                            `).join("")}
+                            ${extraCount > 0 ? `
+                                <span class="sector-more">+${extraCount} more</span>
+                            ` : ""}
+                        </div>
+                    `;
+
                     return `
                         <tr>
 
@@ -635,15 +658,7 @@ function renderStockTable() {
                                 )}
                             </td>
 
-                            <td>
-                                <span class="
-                                    sector-tag
-                                ">
-                                    ${escapeHtml(
-                                        stock.Sector
-                                    )}
-                                </span>
-                            </td>
+                            <td>${sectorHtml}</td>
 
                             <td class="numeric">
                                 ${formatPercent(
