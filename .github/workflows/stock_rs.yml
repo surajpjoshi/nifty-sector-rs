@@ -1,4 +1,4 @@
-name: Nifty Sector Relative Strength
+name: Nifty Master Relative Strength
 
 on:
   workflow_dispatch:
@@ -8,11 +8,9 @@ permissions:
 
 jobs:
   calculate-rs:
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -26,9 +24,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Nifty Sector RS
+      - name: Run Nifty master RS calculation
         env:
-          UPSTOX_ACCESS_TOKEN: ${{ secrets.UPSTOX_ACCESS_TOKEN }}
+          UPSTOX_ANALYTICS_TOKEN: ${{ secrets.UPSTOX_ANALYTICS_TOKEN }}
         run: |
           python src/main.py
 
@@ -47,6 +45,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update Nifty sector relative strength data"
+            git commit -m "Update Nifty master relative strength data"
             git push
           fi
