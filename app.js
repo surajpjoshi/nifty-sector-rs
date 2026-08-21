@@ -213,7 +213,7 @@ function formatLtp(value) {
         value === undefined ||
         !Number.isFinite(Number(value))
     ) {
-        return "â€”";
+        return "—";
     }
 
     return Number(value).toLocaleString("en-IN", {
@@ -424,7 +424,7 @@ function renderSectorCards() {
                             ${escapeHtml(
                                 sector[
                                     "Top Stock"
-                                ] || "â€”"
+                                ] || "—"
                             )}
                         </span>
 
@@ -829,8 +829,8 @@ function renderTopSectorPanel(
 ) {
 
     const medals = [
-        "ðŸ¥‡",
-        "ðŸ¥ˆ"
+        "🥇",
+        "🥈"
     ];
 
     const rows =
@@ -879,7 +879,7 @@ function renderTopSectorPanel(
                                 ${escapeHtml(
                                     stock[
                                         "Company Name"
-                                    ] || "â€”"
+                                    ] || "—"
                                 )}
                             </td>
 
@@ -961,8 +961,7 @@ function renderTopSectorPanel(
                 <span>
                     ${formatPercent(
                         sector.positivePct
-                    )}
-                    positive
+                    )} positive
                 </span>
             </div>
 
@@ -1528,6 +1527,10 @@ function renderStockTable() {
                         ) +
                         ".html";
 
+                    // Get LTP and LTP change
+                    const ltp = getLtp(stock);
+                    const ltpChange = Number(stock["LTP Change %"]);
+
                     return `
                         <tr>
 
@@ -1559,7 +1562,7 @@ function renderStockTable() {
                                 ${escapeHtml(
                                     stock[
                                         "Company Name"
-                                    ] || "â€”"
+                                    ] || "—"
                                 )}
                             </td>
 
@@ -1632,11 +1635,28 @@ function renderStockTable() {
                                 </strong>
                             </td>
 
-
                             <td class="numeric ltp-cell">
-                                <strong>
-                                    ${formatLtp(getLtp(stock))}
-                                </strong>
+                                <div class="ltp-price">
+                                    ₹${formatLtp(ltp)}
+                                </div>
+
+                                ${
+                                    Number.isFinite(ltpChange)
+                                        ? `
+                                            <div class="ltp-change ${
+                                                ltpChange >= 0
+                                                    ? "positive"
+                                                    : "negative"
+                                            }">
+                                                ${
+                                                    ltpChange >= 0
+                                                        ? "+"
+                                                        : ""
+                                                }${ltpChange.toFixed(2)}%
+                                            </div>
+                                          `
+                                        : ""
+                                }
                             </td>
 
                             <td>
@@ -1680,7 +1700,7 @@ function formatPercent(value) {
         Number.isNaN(value) ||
         !Number.isFinite(value)
     ) {
-        return "â€”";
+        return "—";
     }
 
     const sign =
@@ -1850,6 +1870,3 @@ document
 
 
 loadData();
-
-
-

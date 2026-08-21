@@ -75,3 +75,28 @@ footer{display:flex;justify-content:space-between;gap:15px;padding:24px 4px 5px;
 .ltp-cell {
     white-space: nowrap;
 }
+
+.ltp-cell {
+    white-space: nowrap;
+    min-width: 90px;
+}
+
+.ltp-price {
+    font-weight: 800;
+    color: #0f172a;
+    font-size: 13px;
+}
+
+.ltp-change {
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.ltp-change.positive {
+    color: #059669;
+}
+
+.ltp-change.negative {
+    color: #dc2626;
+}
