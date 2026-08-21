@@ -32,15 +32,22 @@ body {
     padding: 28px;
 }
 
+/* ==========================================
+   HEADER
+   ========================================== */
+
 .topbar {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: 26px 30px;
+
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     gap: 25px;
+
     box-shadow: var(--shadow);
 }
 
@@ -88,6 +95,10 @@ h1 {
     font-size: 17px;
 }
 
+/* ==========================================
+   SECTIONS
+   ========================================== */
+
 .section {
     margin-top: 30px;
 }
@@ -117,6 +128,10 @@ h2 {
     font-size: 12px;
 }
 
+/* ==========================================
+   SECTOR CARDS
+   ========================================== */
+
 .sector-grid {
     display: grid;
     grid-template-columns:
@@ -129,11 +144,14 @@ h2 {
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 17px;
+
     cursor: pointer;
+
     transition:
         transform 0.15s ease,
         box-shadow 0.15s ease,
         border-color 0.15s ease;
+
     box-shadow: var(--shadow);
 }
 
@@ -163,7 +181,9 @@ h2 {
 .sector-meta {
     display: flex;
     justify-content: space-between;
+
     margin-top: 9px;
+
     color: var(--muted);
     font-size: 11px;
 }
@@ -176,14 +196,21 @@ h2 {
     color: var(--red);
 }
 
+/* ==========================================
+   FILTERS
+   ========================================== */
+
 .filters {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
+
     padding: 13px;
+
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+
     box-shadow: var(--shadow);
 }
 
@@ -196,10 +223,14 @@ input,
 select,
 button {
     height: 40px;
+
     border-radius: 9px;
     border: 1px solid var(--border);
+
     background: white;
+
     padding: 0 12px;
+
     font: inherit;
     font-size: 13px;
 }
@@ -220,50 +251,220 @@ button {
     background: #f8fafc;
 }
 
+/* ==========================================
+   TABLE CONTAINER
+   ========================================== */
+
 .table-wrap {
     margin-top: 12px;
+
     background: var(--surface);
+
     border: 1px solid var(--border);
     border-radius: 14px;
-    overflow: auto;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
     box-shadow: var(--shadow);
 }
 
-table {
+/* ==========================================
+   STOCK TABLE
+   ========================================== */
+
+.stock-table {
     width: 100%;
+    min-width: 1320px;
+
     border-collapse: collapse;
-    min-width: 1250px;
-    table-layout: auto;
+
+    table-layout: fixed;
 }
 
-thead {
+/* ------------------------------------------
+   Column widths
+   ------------------------------------------ */
+
+.stock-table .col-rank {
+    width: 35px;
+}
+
+.stock-table .col-stock {
+    width: 105px;
+}
+
+.stock-table .col-company {
+    width: 200px;
+}
+
+.stock-table .col-sector {
+    width: 300px;
+}
+
+.stock-table .col-number {
+    width: 72px;
+}
+
+.stock-table .col-chart {
+    width: 65px;
+}
+
+/* ==========================================
+   TABLE HEADER
+   ========================================== */
+
+.stock-table thead {
     background: #f8fafc;
 }
 
-th {
+.stock-table th {
     text-align: left;
+
     padding: 10px 8px;
+
     font-size: 11px;
     color: var(--muted);
     font-weight: 700;
+
     border-bottom: 1px solid var(--border);
+
     white-space: nowrap;
 }
 
-td {
+.stock-table th.numeric {
+    text-align: right;
+}
+
+/* ==========================================
+   TABLE BODY
+   ========================================== */
+
+.stock-table td {
     padding: 10px 8px;
+
     border-bottom: 1px solid #f0f2f5;
+
     font-size: 13px;
-    white-space: nowrap;
+
+    vertical-align: middle;
 }
 
-tbody tr:hover {
+.stock-table tbody tr:hover {
     background: #fafafa;
 }
 
-.numeric {
-    text-align: right;
+/* ==========================================
+   RANK
+   ========================================== */
+
+.stock-table th:nth-child(1),
+.stock-table td:nth-child(1) {
+    width: 35px;
+    text-align: center;
 }
+
+/* ==========================================
+   STOCK
+   ========================================== */
+
+.stock-table th:nth-child(2),
+.stock-table td:nth-child(2) {
+    width: 105px;
+}
+
+.stock-symbol {
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+/* ==========================================
+   COMPANY
+   ========================================== */
+
+.stock-table th:nth-child(3),
+.stock-table td:nth-child(3) {
+    width: 200px;
+    max-width: 200px;
+}
+
+.company-name {
+    width: 200px;
+    max-width: 200px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==========================================
+   INDEX / SECTOR
+   ========================================== */
+
+.stock-table th:nth-child(4),
+.stock-table td:nth-child(4) {
+    width: 300px;
+    min-width: 300px;
+    max-width: 300px;
+}
+
+.sector-memberships {
+    width: 300px;
+    min-width: 300px;
+    max-width: 300px;
+
+    white-space: normal;
+
+    overflow: hidden;
+
+    line-height: 1.6;
+
+    overflow-wrap: anywhere;
+}
+
+.sector-memberships .sector-tag {
+    display: inline-block;
+
+    margin: 2px 3px 2px 0;
+
+    padding: 3px 6px;
+
+    background: #f1f5f9;
+
+    border-radius: 6px;
+
+    color: #475569;
+
+    font-size: 9px;
+    line-height: 1.3;
+
+    white-space: normal;
+
+    overflow-wrap: anywhere;
+
+    max-width: 100%;
+}
+
+/* ==========================================
+   NUMERIC COLUMNS
+   ========================================== */
+
+.stock-table th.numeric,
+.stock-table td.numeric {
+    width: 72px;
+    min-width: 72px;
+
+    padding-left: 5px;
+    padding-right: 5px;
+
+    text-align: right;
+
+    white-space: nowrap;
+}
+
+/* ==========================================
+   SORTING
+   ========================================== */
 
 .sortable {
     cursor: pointer;
@@ -273,41 +474,45 @@ tbody tr:hover {
     color: var(--blue);
 }
 
-.stock-symbol {
-    font-weight: 800;
-}
+/* ==========================================
+   CHART BUTTON
+   ========================================== */
 
-.company-name {
-    max-width: 190px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sector-tag {
-    display: inline-block;
-    background: #f1f5f9;
-    border-radius: 6px;
-    padding: 4px 7px;
-    font-size: 10px;
-    color: #475569;
+.stock-table th:last-child,
+.stock-table td:last-child {
+    width: 65px;
+    min-width: 65px;
 }
 
 .chart-link {
     display: inline-flex;
+
     align-items: center;
     justify-content: center;
+
     text-decoration: none;
+
     border: 1px solid var(--border);
     border-radius: 7px;
-    padding: 5px 8px;
-    font-size: 11px;
+
+    padding: 4px 7px;
+
+    font-size: 10px;
+
     color: var(--blue);
+
     background: white;
+
+    white-space: nowrap;
 }
 
 .chart-link:hover {
     background: #eff6ff;
 }
+
+/* ==========================================
+   RESULT COUNT
+   ========================================== */
 
 .result-count {
     color: var(--muted);
@@ -315,19 +520,34 @@ tbody tr:hover {
     margin-top: 10px;
 }
 
+/* ==========================================
+   LOADING
+   ========================================== */
+
 .loading {
     text-align: center;
     padding: 35px;
     color: var(--muted);
 }
 
+/* ==========================================
+   FOOTER
+   ========================================== */
+
 footer {
     display: flex;
     justify-content: space-between;
+
     color: var(--muted);
+
     font-size: 11px;
+
     padding: 25px 5px 10px;
 }
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
 
 @media (max-width: 1100px) {
 
@@ -340,7 +560,6 @@ footer {
         align-items: flex-start;
         flex-direction: column;
     }
-
 }
 
 @media (max-width: 700px) {
@@ -371,97 +590,4 @@ footer {
         flex-direction: column;
         gap: 5px;
     }
-
-}
-
-.sector-memberships {
-    width: 300px;
-    min-width: 300px;
-    max-width: 300px;
-    white-space: normal;
-    line-height: 1.7;
-    overflow-wrap: anywhere;
-}
-
-.sector-memberships .sector-tag {
-    margin: 1px 2px 1px 0;
-    padding: 3px 5px;
-    font-size: 9px;
-}
-
-
-th.numeric,
-td.numeric {
-    width: 72px;
-    min-width: 72px;
-    padding-left: 6px;
-    padding-right: 6px;
-    text-align: right;
-}
-
-table th:first-child,
-table td:first-child {
-    width: 35px;
-}
-
-table th:last-child,
-table td:last-child {
-    width: 58px;
-}
-
-.chart-link {
-    padding: 4px 7px;
-    font-size: 10px;
-}
-
-
-/* ================================
-   STOCK TABLE COLUMN SIZING
-   ================================ */
-
-table th:nth-child(1),
-table td:nth-child(1) {
-    width: 35px;
-}
-
-table th:nth-child(2),
-table td:nth-child(2) {
-    width: 95px;
-}
-
-table th:nth-child(3),
-table td:nth-child(3) {
-    width: 210px;
-    max-width: 210px;
-}
-
-table th:nth-child(4),
-table td:nth-child(4) {
-    width: 300px;
-    min-width: 300px;
-    max-width: 300px;
-}
-
-table th:nth-child(5),
-table td:nth-child(5),
-table th:nth-child(6),
-table td:nth-child(6),
-table th:nth-child(7),
-table td:nth-child(7),
-table th:nth-child(8),
-table td:nth-child(8),
-table th:nth-child(9),
-table td:nth-child(9),
-table th:nth-child(10),
-table td:nth-child(10),
-table th:nth-child(11),
-table td:nth-child(11) {
-    width: 72px;
-    min-width: 72px;
-}
-
-table th:nth-child(12),
-table td:nth-child(12) {
-    width: 65px;
-    min-width: 65px;
 }
