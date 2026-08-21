@@ -1,4 +1,4 @@
-name: Test Upstox Data
+name: Upstox Nifty Data Test
 
 on:
   workflow_dispatch:
