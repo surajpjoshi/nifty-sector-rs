@@ -203,7 +203,6 @@ def get_daily_candles(
     return df
 
 
-
 def fetch_ltp_quotes(instrument_mapping):
     """
     Fetch live LTP / previous close for mapped NSE equity instruments.
@@ -555,6 +554,362 @@ def calculate_returns(df):
     }
 
 
+def calculate_rs_history(
+    stock_df,
+    nifty_df,
+    days=10,
+):
+    """
+    Calculate daily 3M Relative Strength for the
+    last `days` actual market trading sessions.
+
+    RS = Stock 3M return - Nifty 3M return
+
+    Only actual dates returned by the NSE/Upstox daily
+    candle data are used. Weekends and market holidays
+    therefore never appear in the history.
+    """
+
+    if stock_df.empty or nifty_df.empty:
+        return []
+
+    stock = stock_df.copy()
+    nifty = nifty_df.copy()
+
+    stock["date"] = pd.to_datetime(stock["date"])
+    nifty["date"] = pd.to_datetime(nifty["date"])
+
+    stock = (
+        stock
+        .sort_values("date")
+        .drop_duplicates("date")
+        .reset_index(drop=True)
+    )
+
+    nifty = (
+        nifty
+        .sort_values("date")
+        .drop_duplicates("date")
+        .reset_index(drop=True)
+    )
+
+    # ---------------------------------------------------------
+    # Align stock and NIFTY on actual common trading sessions.
+    # ---------------------------------------------------------
+
+    merged = pd.merge(
+        stock[
+            [
+                "date",
+                "close",
+                "volume",
+            ]
+        ],
+        nifty[
+            [
+                "date",
+                "close",
+            ]
+        ],
+        on="date",
+        how="inner",
+        suffixes=(
+            "_stock",
+            "_nifty",
+        ),
+    )
+
+    if merged.empty:
+        return []
+
+    merged = (
+        merged
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+
+    # ---------------------------------------------------------
+    # 3 MONTH = approximately 63 trading sessions.
+    #
+    # We need the historical candle before the 3M window
+    # in order to calculate the return for EACH date.
+    # ---------------------------------------------------------
+
+    LOOKBACK_SESSIONS = 63
+
+    if len(merged) <= LOOKBACK_SESSIONS:
+        return []
+
+    merged["stock_base"] = (
+        merged["close_stock"]
+        .shift(LOOKBACK_SESSIONS)
+    )
+
+    merged["nifty_base"] = (
+        merged["close_nifty"]
+        .shift(LOOKBACK_SESSIONS)
+    )
+
+    # Stock 3M return
+    merged["stock_3m_return"] = (
+        (
+            merged["close_stock"]
+            / merged["stock_base"]
+        ) - 1
+    ) * 100
+
+    # NIFTY 3M return
+    merged["nifty_3m_return"] = (
+        (
+            merged["close_nifty"]
+            / merged["nifty_base"]
+        ) - 1
+    ) * 100
+
+    # Relative Strength
+    merged["rs"] = (
+        merged["stock_3m_return"]
+        - merged["nifty_3m_return"]
+    )
+
+    # ---------------------------------------------------------
+    # Keep only rows where the complete 3M calculation exists.
+    # ---------------------------------------------------------
+
+    valid = merged[
+        merged["stock_base"].notna()
+        & merged["nifty_base"].notna()
+        & merged["rs"].notna()
+    ].copy()
+
+    if valid.empty:
+        return []
+
+    # ---------------------------------------------------------
+    # IMPORTANT:
+    #
+    # tail(days) means LAST ACTUAL TRADING SESSIONS.
+    #
+    # No calendar-day calculation is used here.
+    # ---------------------------------------------------------
+
+    recent = valid.tail(days).copy()
+
+    history = []
+
+    for _, item in recent.iterrows():
+
+        volume = item["volume"]
+
+        history.append(
+            {
+                "date": item["date"].strftime(
+                    "%Y-%m-%d"
+                ),
+
+                "rs": clean_number(
+                    item["rs"]
+                ),
+
+                "volume": (
+                    int(volume)
+                    if (
+                        pd.notna(volume)
+                        and float(volume) >= 0
+                    )
+                    else None
+                ),
+            }
+        )
+
+    return history
+
+def calculate_rs_momentum_metrics(
+    rs_history,
+):
+    """
+    Calculate RS momentum statistics from the
+    last 10 available RS observations.
+    """
+
+    valid = [
+        item
+        for item in rs_history
+        if item.get("rs") is not None
+    ]
+
+    if not valid:
+        return {
+            "10D RS Change": None,
+            "Highest RS": None,
+            "Lowest RS": None,
+            "Average RS": None,
+            "RS Momentum Score": None,
+            "Consistency": None,
+            "RS Data Days": 0,
+        }
+
+    rs_values = [
+        float(item["rs"])
+        for item in valid
+    ]
+
+    current_rs = rs_values[-1]
+
+    if len(rs_values) >= 2:
+
+        first_rs = rs_values[0]
+
+        rs_change = (
+            current_rs - first_rs
+        )
+
+        previous_values = rs_values[:-1]
+
+        previous_average = (
+            sum(previous_values)
+            / len(previous_values)
+        )
+
+        momentum_score = (
+            current_rs
+            - previous_average
+        )
+
+    else:
+
+        rs_change = None
+        momentum_score = None
+
+    # Count sessions where RS increased
+    positive_days = 0
+
+    for i in range(1, len(rs_values)):
+
+        if rs_values[i] > rs_values[i - 1]:
+            positive_days += 1
+
+    consistency = (
+        positive_days
+        if len(rs_values) <= 1
+        else positive_days
+    )
+
+    return {
+        "10D RS Change": clean_number(
+            rs_change
+        ),
+
+        "Highest RS": clean_number(
+            max(rs_values)
+        ),
+
+        "Lowest RS": clean_number(
+            min(rs_values)
+        ),
+
+        "Average RS": clean_number(
+            sum(rs_values)
+            / len(rs_values)
+        ),
+
+        "RS Momentum Score": clean_number(
+            momentum_score
+        ),
+
+        "Consistency": consistency,
+
+        "RS Data Days": len(rs_values),
+    }
+
+
+def calculate_volume_metrics(
+    rs_history,
+):
+    """
+    Calculate volume statistics using the last 10
+    available trading sessions.
+
+    Volume Ratio compares the latest session against
+    the average of the preceding sessions.
+    """
+
+    valid = [
+        item
+        for item in rs_history
+        if item.get("volume") is not None
+    ]
+
+    if not valid:
+        return {
+            "Today Volume": None,
+            "10D Average Volume": None,
+            "Volume Ratio": None,
+            "Volume Change %": None,
+        }
+
+    volumes = [
+        float(item["volume"])
+        for item in valid
+    ]
+
+    today_volume = volumes[-1]
+
+    previous_volumes = volumes[:-1]
+
+    if previous_volumes:
+
+        average_volume = (
+            sum(previous_volumes)
+            / len(previous_volumes)
+        )
+
+    else:
+
+        average_volume = None
+
+    if (
+        average_volume is not None
+        and average_volume > 0
+    ):
+
+        volume_ratio = (
+            today_volume
+            / average_volume
+        )
+
+        volume_change = (
+            volume_ratio - 1
+        ) * 100
+
+    else:
+
+        volume_ratio = None
+        volume_change = None
+
+    return {
+        "Today Volume": int(
+            today_volume
+        ),
+
+        "10D Average Volume": (
+            clean_number(
+                average_volume
+            )
+            if average_volume is not None
+            else None
+        ),
+
+        "Volume Ratio": clean_number(
+            volume_ratio
+        ),
+
+        "Volume Change %": clean_number(
+            volume_change
+        ),
+    }
+
+
 def clean_number(value):
 
     if value is None:
@@ -603,7 +958,7 @@ def fetch_nifty_return(
         },
     )
 
-    return nifty_returns
+    return nifty_returns, nifty_df
 
 
 def load_stocks():
@@ -725,6 +1080,7 @@ def process_stock(
     from_date,
     to_date,
     nifty_returns,
+    nifty_df,
     instrument_mapping,
     ltp_quotes,
 ):
@@ -780,6 +1136,24 @@ def process_stock(
             "symbol": symbol,
             "isin": isin,
         }
+
+    # ---------------------------------------------------------
+    # 10-DAY RS HISTORY + VOLUME HISTORY
+    # ---------------------------------------------------------
+
+    rs_history = calculate_rs_history(
+        df,
+        nifty_df,
+        days=10,
+    )
+
+    rs_metrics = calculate_rs_momentum_metrics(
+        rs_history
+    )
+
+    volume_metrics = calculate_volume_metrics(
+        rs_history
+    )
 
     returns = calculate_returns(df)
 
@@ -842,6 +1216,67 @@ def process_stock(
             clean_number(
                 relative_strength
             ),
+
+        "RS History":
+            rs_history,
+
+        "10D RS Change":
+            rs_metrics[
+                "10D RS Change"
+            ],
+
+        "Highest RS":
+            rs_metrics[
+                "Highest RS"
+            ],
+
+        "Lowest RS":
+            rs_metrics[
+                "Lowest RS"
+            ],
+
+        "Average RS":
+            rs_metrics[
+                "Average RS"
+            ],
+
+        "RS Momentum Score":
+            rs_metrics[
+                "RS Momentum Score"
+            ],
+
+        "Consistency":
+            rs_metrics[
+                "Consistency"
+            ],
+
+        "RS Data Days":
+            rs_metrics[
+                "RS Data Days"
+            ],
+
+        "Volume History":
+            rs_history,
+
+        "Today Volume":
+            volume_metrics[
+                "Today Volume"
+            ],
+
+        "10D Average Volume":
+            volume_metrics[
+                "10D Average Volume"
+            ],
+
+        "Volume Ratio":
+            volume_metrics[
+                "Volume Ratio"
+            ],
+
+        "Volume Change %":
+            volume_metrics[
+                "Volume Change %"
+            ],
 
         "Upstox Instrument Key":
             instrument_key,
@@ -1033,7 +1468,7 @@ def main():
     )
 
     # Only fetch LTP for instruments that actually exist
-# in our master stock list.
+    # in our master stock list.
     # Restrict live LTP requests to the 536 ISINs in our stock master.
     # instrument_mapping contains the full NSE universe (~2872 instruments).
     master_isins = set(
@@ -1068,7 +1503,7 @@ def main():
             f"LTP quotes={len(ltp_quotes)}"
         )
 
-    nifty_returns = (
+    nifty_returns, nifty_df = (
         fetch_nifty_return(
             from_date_str,
             to_date_str,
@@ -1116,6 +1551,7 @@ def main():
                 from_date_str,
                 to_date_str,
                 nifty_returns,
+                nifty_df,
                 instrument_mapping,
                 ltp_quotes,
             )
@@ -1232,6 +1668,58 @@ def main():
                     stock_result.get(
                         "Stock Relative Strength vs Nifty"
                     ),
+                "RS History":
+                    stock_result.get(
+                        "RS History"
+                    ),
+                "10D RS Change":
+                    stock_result.get(
+                        "10D RS Change"
+                    ),
+                "Highest RS":
+                    stock_result.get(
+                        "Highest RS"
+                    ),
+                "Lowest RS":
+                    stock_result.get(
+                        "Lowest RS"
+                    ),
+                "Average RS":
+                    stock_result.get(
+                        "Average RS"
+                    ),
+                "RS Momentum Score":
+                    stock_result.get(
+                        "RS Momentum Score"
+                    ),
+                "Consistency":
+                    stock_result.get(
+                        "Consistency"
+                    ),
+                "RS Data Days":
+                    stock_result.get(
+                        "RS Data Days"
+                    ),
+                "Volume History":
+                    stock_result.get(
+                        "Volume History"
+                    ),
+                "Today Volume":
+                    stock_result.get(
+                        "Today Volume"
+                    ),
+                "10D Average Volume":
+                    stock_result.get(
+                        "10D Average Volume"
+                    ),
+                "Volume Ratio":
+                    stock_result.get(
+                        "Volume Ratio"
+                    ),
+                "Volume Change %":
+                    stock_result.get(
+                        "Volume Change %"
+                    ),
                 "Upstox Instrument Key":
                     stock_result.get(
                         "Upstox Instrument Key"
@@ -1303,6 +1791,19 @@ def main():
                     ),
                 "Stock Relative Strength vs Nifty":
                     None,
+                "RS History": None,
+                "10D RS Change": None,
+                "Highest RS": None,
+                "Lowest RS": None,
+                "Average RS": None,
+                "RS Momentum Score": None,
+                "Consistency": None,
+                "RS Data Days": None,
+                "Volume History": None,
+                "Today Volume": None,
+                "10D Average Volume": None,
+                "Volume Ratio": None,
+                "Volume Change %": None,
                 "Upstox Instrument Key":
                     "",
 

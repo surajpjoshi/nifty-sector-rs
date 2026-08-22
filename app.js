@@ -1,4 +1,4 @@
-﻿const STOCK_URL = "data/stock_rs.json";
+const STOCK_URL = "data/stock_rs.json";
 const SECTOR_URL = "data/sector_summary.json";
 
 let stocks = [];
@@ -552,7 +552,9 @@ function renderTopSectorStocks() {
     }
 
     const leadershipSection =
-        sectorCards.closest(".section");
+        document.getElementById(
+            "leadershipPanel"
+        );
 
     if (!leadershipSection) {
         return;
@@ -590,12 +592,12 @@ function renderTopSectorStocks() {
                     period => `
                         <button
                             type="button"
-                            class="top-sector-tab ${
+                            class="top-sector-tab ${(
                                 period.key ===
                                 topSectorPeriod
                                     ? "active"
                                     : ""
-                            }"
+                            )}"
                             data-top-period="${period.key}"
                         >
                             ${period.label}
@@ -611,8 +613,7 @@ function renderTopSectorStocks() {
         ></div>
     `;
 
-    leadershipSection.insertAdjacentElement(
-        "afterend",
+    leadershipSection.appendChild(
         section
     );
 
@@ -886,11 +887,11 @@ function renderTopSectorPanel(
                             <td
                                 class="
                                     numeric
-                                    ${
+                                    ${(
                                         value >= 0
                                             ? "positive"
                                             : "negative"
-                                    }
+                                    )}
                                 "
                             >
                                 ${formatPercent(
@@ -937,11 +938,11 @@ function renderTopSectorPanel(
 
                 </div>
 
-                <div class="top-sector-average ${
+                <div class="top-sector-average ${(
                     sector.average >= 0
                         ? "positive"
                         : "negative"
-                }">
+                )}">
                     ${formatPercent(
                         sector.average
                     )}
@@ -1539,16 +1540,7 @@ function renderStockTable() {
                             </td>
 
                             <td>
-                                <span class="
-                                    stock-symbol
-                                    ${valueClass(
-                                        rs
-                                    )}
-                                ">
-                                    ${escapeHtml(
-                                        stock.Symbol
-                                    )}
-                                </span>
+                                ${scannerStockLink(stock)}
                             </td>
 
                             <td
@@ -1643,11 +1635,11 @@ function renderStockTable() {
                                 ${
                                     Number.isFinite(ltpChange)
                                         ? `
-                                            <div class="ltp-change ${
+                                            <div class="ltp-change ${(
                                                 ltpChange >= 0
                                                     ? "positive"
                                                     : "negative"
-                                            }">
+                                            )}">
                                                 ${
                                                     ltpChange >= 0
                                                         ? "+"
@@ -1868,5 +1860,1543 @@ document
         }
     );
 
+// ============================================================
+// RS MOMENTUM + VOLUME SCANNER
+// ============================================================
+
+let volumeRatioFilter = 0;
+
+function scannerNumber(value, decimals = 2) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "—";
+    }
+
+    return n.toFixed(decimals);
+}
+
+
+function scannerPercent(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "—";
+    }
+
+    const sign = n > 0 ? "+" : "";
+
+    return `${sign}${n.toFixed(2)}%`;
+}
+
+
+function scannerLtp(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "—";
+    }
+
+    return "₹" + n.toLocaleString(
+        "en-IN",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    );
+}
+
+
+function scannerVolume(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "—";
+    }
+
+    if (n >= 10000000) {
+        return `${(n / 10000000).toFixed(2)} Cr`;
+    }
+
+    if (n >= 100000) {
+        return `${(n / 100000).toFixed(2)} L`;
+    }
+
+    if (n >= 1000) {
+        return `${(n / 1000).toFixed(1)} K`;
+    }
+
+    return Math.round(n).toLocaleString("en-IN");
+}
+
+
+function scannerChangeClass(value) {
+
+    const n = Number(value);
+
+    if (!Number.isFinite(n)) {
+        return "";
+    }
+
+    if (n > 0) {
+        return "positive";
+    }
+
+    if (n < 0) {
+        return "negative";
+    }
+
+    return "";
+}
+
+
+// ============================================================
+// CHARTINK HELPER FUNCTIONS
+// ============================================================
+
+function getChartInkUrl(stock) {
+    const symbol = String(
+        stock["Symbol"] || ""
+    ).trim().toUpperCase();
+
+    if (!symbol) {
+        return "#";
+    }
+
+    return `https://chartink.com/stocks/${encodeURIComponent(symbol)}.html`;
+}
+
+
+function chartButton(stock) {
+    const symbol = String(
+        stock["Symbol"] || ""
+    ).trim().toUpperCase();
+
+    if (!symbol) {
+        return "—";
+    }
+
+    return `
+        <a
+            href="${getChartInkUrl(stock)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="scanner-chart-link"
+            title="Open ${symbol} ChartInk chart"
+        >
+            Chart
+        </a>
+    `;
+}
+
+
+function scannerStockLink(stock) {
+
+    const symbol =
+        escapeHtml(
+            stock.Symbol || ""
+        );
+
+    return `
+        <button
+            type="button"
+            class="scanner-stock-history-link"
+            onclick="openRSHistoryModal('${symbol}')"
+            title="View last 10 trading days RS"
+        >
+            ${symbol}
+        </button>
+    `;
+}
+
+
+function openChartInk(symbol) {
+    if (!symbol) return;
+
+    const url =
+        `https://chartink.com/stocks/${encodeURIComponent(symbol)}.html`;
+
+    window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+    );
+}
+
+function getRsTrend(stock) {
+
+    const history = Array.isArray(
+        stock["RS History"]
+    )
+        ? stock["RS History"]
+        : [];
+
+    const values = history
+        .map(x => Number(x.rs))
+        .filter(Number.isFinite);
+
+    if (values.length < 2) {
+        return "—";
+    }
+
+    const last = values[values.length - 1];
+    const first = values[0];
+
+    if (last > first) {
+        return "↗";
+    }
+
+    if (last < first) {
+        return "↘";
+    }
+
+    return "→";
+}
+
+
+function getConsistencyText(stock) {
+
+    const consistency =
+        Number(stock["Consistency"]);
+
+    const days =
+        Number(stock["RS Data Days"]);
+
+    if (
+        !Number.isFinite(consistency)
+        ||
+        !Number.isFinite(days)
+        ||
+        days < 2
+    ) {
+        return "—";
+    }
+
+    return `${consistency}/${days - 1}`;
+}
+
+
+function getUniqueScannerStocks() {
+
+    const seen = new Set();
+
+    return stocks.filter(stock => {
+
+        // Prefer ISIN because it is the most reliable
+        // unique identifier for the actual stock.
+        const isin =
+            String(
+                stock["ISIN Code"] || ""
+            ).trim();
+
+        const symbol =
+            String(
+                stock["Symbol"] || ""
+            ).trim()
+            .toUpperCase();
+
+        const key =
+            isin
+                ? `ISIN:${isin}`
+                : `SYMBOL:${symbol}`;
+
+        if (!key || key === "SYMBOL:") {
+            return false;
+        }
+
+        if (seen.has(key)) {
+            return false;
+        }
+
+        seen.add(key);
+
+        return true;
+    });
+}
+
+function renderRSMomentumScanner() {
+
+    const body =
+        document.getElementById(
+            "rsMomentumBody"
+        );
+
+    if (!body) {
+        return;
+    }
+
+    const uniqueStocks =
+        getUniqueScannerStocks();
+
+    const valid = uniqueStocks
+        .filter(stock =>
+            Number.isFinite(
+                Number(
+                    stock["Stock Relative Strength vs Nifty"]
+                )
+            )
+        )
+        .sort(
+            (a, b) =>
+                Number(
+                    b["RS Momentum Score"] ?? -Infinity
+                )
+                -
+                Number(
+                    a["RS Momentum Score"] ?? -Infinity
+                )
+        );
+
+    const top = valid.slice(0, 50);
+
+    const momentumCount =
+        valid.filter(
+            stock =>
+                Number(
+                    stock["RS Momentum Score"]
+                ) > 0
+        ).length;
+
+    const consistentCount =
+        valid.filter(
+            stock =>
+                Number(
+                    stock["Consistency"]
+                ) >= 5
+        ).length;
+
+    const countEl =
+        document.getElementById(
+            "momentumStockCount"
+        );
+
+    const positiveEl =
+        document.getElementById(
+            "positiveMomentumCount"
+        );
+
+    const consistentEl =
+        document.getElementById(
+            "consistentStockCount"
+        );
+
+    if (countEl) {
+        countEl.textContent =
+            valid.length;
+    }
+
+    if (positiveEl) {
+        positiveEl.textContent =
+            momentumCount;
+    }
+
+    if (consistentEl) {
+        consistentEl.textContent =
+            consistentCount;
+    }
+
+    if (!top.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td
+                    colspan="11"
+                    class="loading"
+                >
+                    No RS momentum data available.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    body.innerHTML =
+        top.map(
+            (stock, index) => {
+
+                const rs =
+                    Number(
+                        stock[
+                            "Stock Relative Strength vs Nifty"
+                        ]
+                    );
+
+                const change =
+                    Number(
+                        stock["10D RS Change"]
+                    );
+
+                const momentum =
+                    Number(
+                        stock["RS Momentum Score"]
+                    );
+
+                const ltpChange =
+                    Number(
+                        stock["LTP Change %"]
+                    );
+
+                return `
+                    <tr>
+
+                        <td>${index + 1}</td>
+
+                        <td>
+                            ${scannerStockLink(stock)}
+                        </td>
+
+                        <td>
+                            ${stock["Company Name"] || "—"}
+                        </td>
+
+                        <td class="${scannerChangeClass(rs)}">
+                            ${scannerNumber(rs)}
+                        </td>
+
+                        <td class="${scannerChangeClass(change)}">
+                            ${scannerPercent(change)}
+                        </td>
+
+                        <td class="${scannerChangeClass(momentum)}">
+                            ${scannerNumber(momentum)}
+                        </td>
+
+                        <td>
+                            ${getConsistencyText(stock)}
+                        </td>
+
+                        <td class="rs-trend">
+                            ${getRsTrend(stock)}
+                        </td>
+
+                        <td>
+                            ${scannerLtp(stock.LTP)}
+                        </td>
+
+                        <td class="${scannerChangeClass(ltpChange)}">
+                            ${scannerPercent(ltpChange)}
+                        </td>
+
+                        <td>
+                            ${chartButton(stock)}
+                        </td>
+
+                    </tr>
+                `;
+            }
+        ).join("");
+}
+
+
+function renderVolumeGainersScanner() {
+
+    const body =
+        document.getElementById(
+            "volumeGainersBody"
+        );
+
+    if (!body) {
+        return;
+    }
+
+    const uniqueStocks =
+        getUniqueScannerStocks();
+
+    const valid = uniqueStocks
+        .filter(
+            stock =>
+                Number.isFinite(
+                    Number(
+                        stock["Volume Ratio"]
+                    )
+                )
+        )
+        .sort(
+            (a, b) =>
+                Number(
+                    b["Volume Ratio"]
+                )
+                -
+                Number(
+                    a["Volume Ratio"]
+                )
+        );
+
+    let top;
+
+    if (volumeRatioFilter === 2) {
+
+        top = valid.filter(
+            stock =>
+                Number(
+                    stock["Volume Ratio"]
+                ) >= 2
+        );
+
+    } else if (volumeRatioFilter === 3) {
+
+        top = valid.filter(
+            stock =>
+                Number(
+                    stock["Volume Ratio"]
+                ) >= 3
+        );
+
+    } else {
+
+        top = valid.slice(0, 50);
+
+    }
+
+    const highVolume =
+        valid.filter(
+            stock =>
+                Number(
+                    stock["Volume Ratio"]
+                ) >= 2
+        ).length;
+
+    const veryHighVolume =
+        valid.filter(
+            stock =>
+                Number(
+                    stock["Volume Ratio"]
+                ) >= 3
+        ).length;
+
+    document.getElementById(
+        "volumeStockCount"
+    ).textContent = valid.length;
+
+    document.getElementById(
+        "highVolumeCount"
+    ).textContent = highVolume;
+
+    document.getElementById(
+        "veryHighVolumeCount"
+    ).textContent = veryHighVolume;
+
+    const highVolumeButton =
+        document.getElementById(
+            "highVolumeCount"
+        );
+
+    const veryHighVolumeButton =
+        document.getElementById(
+            "veryHighVolumeCount"
+        );
+
+    if (highVolumeButton) {
+
+        highVolumeButton.classList.toggle(
+            "active",
+            volumeRatioFilter === 2
+        );
+
+        highVolumeButton.onclick = () => {
+
+            volumeRatioFilter =
+                volumeRatioFilter === 2
+                    ? 0
+                    : 2;
+
+            renderVolumeGainersScanner();
+        };
+    }
+
+    if (veryHighVolumeButton) {
+
+        veryHighVolumeButton.classList.toggle(
+            "active",
+            volumeRatioFilter === 3
+        );
+
+        veryHighVolumeButton.onclick = () => {
+
+            volumeRatioFilter =
+                volumeRatioFilter === 3
+                    ? 0
+                    : 3;
+
+            renderVolumeGainersScanner();
+        };
+    }
+
+    if (!top.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td
+                    colspan="11"
+                    class="loading"
+                >
+                    No volume data available.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    body.innerHTML =
+        top.map(
+            (stock, index) => {
+
+                const today =
+                    Number(
+                        stock["LTP Change %"]
+                    );
+
+                const ratio =
+                    Number(
+                        stock["Volume Ratio"]
+                    );
+
+                const volumeChange =
+                    Number(
+                        stock["Volume Change %"]
+                    );
+
+                const rs =
+                    Number(
+                        stock[
+                            "Stock Relative Strength vs Nifty"
+                        ]
+                    );
+
+                return `
+                    <tr>
+
+                        <td>${index + 1}</td>
+
+                        <td>
+                            ${scannerStockLink(stock)}
+                        </td>
+
+                        <td>
+                            ${stock["Company Name"] || "—"}
+                        </td>
+
+                        <td>
+                            ${scannerLtp(stock.LTP)}
+                        </td>
+
+                        <td class="${scannerChangeClass(today)}">
+                            ${scannerPercent(today)}
+                        </td>
+
+                        <td>
+                            ${scannerVolume(
+                                stock["Today Volume"]
+                            )}
+                        </td>
+
+                        <td>
+                            ${scannerVolume(
+                                stock["10D Average Volume"]
+                            )}
+                        </td>
+
+                        <td>
+                            <strong>
+                                ${scannerNumber(ratio, 2)}x
+                            </strong>
+                        </td>
+
+                        <td class="${scannerChangeClass(volumeChange)}">
+                            ${scannerPercent(volumeChange)}
+                        </td>
+
+                        <td class="${scannerChangeClass(rs)}">
+                            ${scannerNumber(rs)}
+                        </td>
+
+                        <td>
+                            ${chartButton(stock)}
+                        </td>
+
+                    </tr>
+                `;
+            }
+        ).join("");
+}
+
+
+function renderCombinedScanner() {
+
+    const body =
+        document.getElementById(
+            "combinedScannerBody"
+        );
+
+    if (!body) {
+        return;
+    }
+
+    const uniqueStocks =
+        getUniqueScannerStocks();
+
+    // ========================================================
+    // ACTIONABLE RS + VOLUME CONDITIONS
+    //
+    // 1. Today's price change > 0
+    // 2. 10D RS Change > 0
+    // 3. RS Momentum Score > 0
+    // 4. Volume Ratio >= 1.5x
+    //
+    // This identifies stocks where:
+    // price is moving + RS is improving + volume is expanding
+    // ========================================================
+
+    const candidates =
+        uniqueStocks.filter(stock => {
+
+            const today =
+                Number(
+                    stock["LTP Change %"]
+                );
+
+            const rsChange =
+                Number(
+                    stock["10D RS Change"]
+                );
+
+            const momentum =
+                Number(
+                    stock["RS Momentum Score"]
+                );
+
+            const volumeRatio =
+                Number(
+                    stock["Volume Ratio"]
+                );
+
+            return (
+                Number.isFinite(today)
+                &&
+                Number.isFinite(rsChange)
+                &&
+                Number.isFinite(momentum)
+                &&
+                Number.isFinite(volumeRatio)
+                &&
+                today > 0
+                &&
+                rsChange > 0
+                &&
+                momentum > 0
+                &&
+                volumeRatio >= 1.5
+            );
+        });
+
+
+    // ========================================================
+    // COMBINED SCORE
+    //
+    // Higher RS momentum + higher volume expansion
+    // gets higher priority.
+    //
+    // Small price confirmation is also included.
+    // ========================================================
+
+    candidates.forEach(stock => {
+
+        const momentum =
+            Number(
+                stock["RS Momentum Score"]
+            );
+
+        const volumeRatio =
+            Number(
+                stock["Volume Ratio"]
+            );
+
+        const today =
+            Number(
+                stock["LTP Change %"]
+            );
+
+        const rsChange =
+            Number(
+                stock["10D RS Change"]
+            );
+
+        stock._combinedScore =
+            (
+                momentum * 0.50
+            )
+            +
+            (
+                Math.log1p(volumeRatio) * 10 * 0.30
+            )
+            +
+            (
+                Math.max(rsChange, 0) * 0.15
+            )
+            +
+            (
+                Math.max(today, 0) * 0.05
+            );
+    });
+
+
+    candidates.sort(
+        (a, b) =>
+            Number(
+                b._combinedScore
+            )
+            -
+            Number(
+                a._combinedScore
+            )
+    );
+
+
+    // ========================================================
+    // SUMMARY
+    // ========================================================
+
+    const momentumCount =
+        uniqueStocks.filter(
+            stock =>
+                Number(
+                    stock["RS Momentum Score"]
+                ) > 0
+        ).length;
+
+
+    const volumeCount =
+        uniqueStocks.filter(
+            stock =>
+                Number(
+                    stock["Volume Ratio"]
+                ) >= 1.5
+        ).length;
+
+
+    const combinedCount =
+        candidates.length;
+
+
+    const combinedEl =
+        document.getElementById(
+            "combinedStockCount"
+        );
+
+    const momentumEl =
+        document.getElementById(
+            "combinedMomentumCount"
+        );
+
+    const volumeEl =
+        document.getElementById(
+            "combinedVolumeCount"
+        );
+
+
+    if (combinedEl) {
+        combinedEl.textContent =
+            combinedCount;
+    }
+
+    if (momentumEl) {
+        momentumEl.textContent =
+            momentumCount;
+    }
+
+    if (volumeEl) {
+        volumeEl.textContent =
+            volumeCount;
+    }
+
+
+    // ========================================================
+    // NO RESULTS
+    // ========================================================
+
+    if (!candidates.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td
+                    colspan="11"
+                    class="loading"
+                >
+                    No RS + Volume candidates found.
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    // Show top 50
+    const top =
+        candidates.slice(0, 50);
+
+
+    body.innerHTML =
+        top.map(
+            (stock, index) => {
+
+                const today =
+                    Number(
+                        stock["LTP Change %"]
+                    );
+
+                const rs =
+                    Number(
+                        stock[
+                            "Stock Relative Strength vs Nifty"
+                        ]
+                    );
+
+                const rsChange =
+                    Number(
+                        stock["10D RS Change"]
+                    );
+
+                const momentum =
+                    Number(
+                        stock["RS Momentum Score"]
+                    );
+
+                const volumeRatio =
+                    Number(
+                        stock["Volume Ratio"]
+                    );
+
+                const volumeChange =
+                    Number(
+                        stock["Volume Change %"]
+                    );
+
+
+                return `
+                    <tr>
+
+                        <td>
+                            ${index + 1}
+                        </td>
+
+
+                        <td>
+                            ${scannerStockLink(stock)}
+                        </td>
+
+
+                        <td>
+                            ${stock["Company Name"] || "—"}
+                        </td>
+
+
+                        <td>
+                            ${scannerLtp(
+                                stock.LTP
+                            )}
+                        </td>
+
+
+                        <td class="${scannerChangeClass(today)}">
+                            ${scannerPercent(today)}
+                        </td>
+
+
+                        <td class="${scannerChangeClass(rs)}">
+                            ${scannerNumber(rs)}
+                        </td>
+
+
+                        <td class="${scannerChangeClass(rsChange)}">
+                            ${scannerPercent(rsChange)}
+                        </td>
+
+
+                        <td class="${scannerChangeClass(momentum)}">
+                            ${scannerNumber(momentum)}
+                        </td>
+
+
+                        <td>
+                            <strong>
+                                ${scannerNumber(
+                                    volumeRatio,
+                                    2
+                                )}x
+                            </strong>
+                        </td>
+
+
+                        <td class="${scannerChangeClass(volumeChange)}">
+                            ${scannerPercent(
+                                volumeChange
+                            )}
+                        </td>
+
+
+                        <td>
+                            ${chartButton(stock)}
+                        </td>
+
+                    </tr>
+                `;
+            }
+        ).join("");
+
+
+    // Remove temporary ranking property
+    candidates.forEach(
+        stock => {
+            delete stock._combinedScore;
+        }
+    );
+}
+
+
+function renderMomentumVolumeScanners() {
+
+    renderRSMomentumScanner();
+
+    renderVolumeGainersScanner();
+
+    renderCombinedScanner();
+}
+
+
+// ------------------------------------------------------------
+// Scanner tab switching
+// ------------------------------------------------------------
+
+document.querySelectorAll(
+    ".scanner-tab"
+).forEach(
+    button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                document.querySelectorAll(
+                    ".scanner-tab"
+                ).forEach(
+                    item =>
+                        item.classList.remove(
+                            "active"
+                        )
+                );
+
+                document.querySelectorAll(
+                    ".scanner-panel"
+                ).forEach(
+                    panel =>
+                        panel.classList.remove(
+                            "active"
+                        )
+                );
+
+                button.classList.add(
+                    "active"
+                );
+
+                const scanner =
+                    button.dataset.scanner;
+
+                if (scanner === "momentum") {
+
+                    document.getElementById(
+                        "rsMomentumPanel"
+                    ).classList.add(
+                        "active"
+                    );
+
+                }
+
+                if (scanner === "volume") {
+
+                    document.getElementById(
+                        "volumeGainersPanel"
+                    ).classList.add(
+                        "active"
+                    );
+
+                }
+
+                if (scanner === "combined") {
+
+                    document.getElementById(
+                        "combinedScannerPanel"
+                    ).classList.add(
+                        "active"
+                    );
+
+                }
+
+            }
+        );
+    }
+);
+
+/* ============================================================
+   10 DAY RS HISTORY
+   ============================================================ */
+
+function openRSHistoryModal(symbol) {
+
+    const modal =
+        document.getElementById(
+            "rsHistoryModal"
+        );
+
+    if (!modal) {
+        return;
+    }
+
+    const stock =
+        getUniqueScannerStocks()
+            .find(
+                item =>
+                    String(item.Symbol)
+                        .toUpperCase() ===
+                    String(symbol)
+                        .toUpperCase()
+            );
+
+    if (!stock) {
+        console.warn(
+            "Stock not found:",
+            symbol
+        );
+
+        return;
+    }
+
+    renderRSHistoryModal(stock);
+
+    modal.classList.add("active");
+
+    document.body.style.overflow = "hidden";
+}
+
+
+function closeRSHistoryModal() {
+
+    const modal =
+        document.getElementById(
+            "rsHistoryModal"
+        );
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove("active");
+
+    document.body.style.overflow = "";
+}
+
+
+function renderRSHistoryModal(stock) {
+
+    const history =
+        Array.isArray(
+            stock["RS History"]
+        )
+            ? stock["RS History"]
+            : [];
+
+    if (!history.length) {
+        return;
+    }
+
+    /*
+     * IMPORTANT:
+     * Sort by actual trading date.
+     * We do NOT generate calendar dates.
+     */
+
+    const sortedHistory =
+        [...history]
+            .filter(
+                item =>
+                    item &&
+                    item.date &&
+                    Number.isFinite(
+                        Number(item.rs)
+                    )
+            )
+            .sort(
+                (a, b) =>
+                    new Date(a.date) -
+                    new Date(b.date)
+            )
+            .slice(-10);
+
+
+    const title =
+        document.getElementById(
+            "rsHistoryTitle"
+        );
+
+    if (title) {
+
+        title.textContent =
+            `${stock.Symbol} — 10 Day RS`;
+    }
+
+
+    const values =
+        sortedHistory.map(
+            item =>
+                Number(item.rs)
+        );
+
+
+    const latest =
+        values.length
+            ? values[values.length - 1]
+            : null;
+
+    const oldest =
+        values.length
+            ? values[0]
+            : null;
+
+    const highest =
+        values.length
+            ? Math.max(...values)
+            : null;
+
+    const lowest =
+        values.length
+            ? Math.min(...values)
+            : null;
+
+    const average =
+        values.length
+            ? values.reduce(
+                (sum, value) =>
+                    sum + value,
+                0
+              ) / values.length
+            : null;
+
+
+    const tenDayChange =
+        latest !== null &&
+        oldest !== null
+            ? latest - oldest
+            : null;
+
+
+    setRSHistoryValue(
+        "rsHistoryChange",
+        tenDayChange
+    );
+
+    setRSHistoryValue(
+        "rsHistoryHigh",
+        highest
+    );
+
+    setRSHistoryValue(
+        "rsHistoryLow",
+        lowest
+    );
+
+    setRSHistoryValue(
+        "rsHistoryAverage",
+        average
+    );
+
+
+    renderRSHistoryChart(
+        sortedHistory
+    );
+
+
+    const body =
+        document.getElementById(
+            "rsHistoryBody"
+        );
+
+    if (!body) {
+        return;
+    }
+
+
+    body.innerHTML =
+        sortedHistory
+            .slice()
+            .reverse()
+            .map(
+                (item, index, arr) => {
+
+                    const rs =
+                        Number(item.rs);
+
+                    const previous =
+                        index <
+                        arr.length - 1
+                            ? Number(
+                                arr[index + 1].rs
+                              )
+                            : null;
+
+                    const change =
+                        previous !== null
+                            ? rs - previous
+                            : null;
+
+                    const changeClass =
+                        change > 0
+                            ? "rs-history-positive"
+                            : change < 0
+                                ? "rs-history-negative"
+                                : "";
+
+
+                    return `
+                        <tr>
+
+                            <td>
+                                ${formatRSHistoryDate(
+                                    item.date
+                                )}
+                            </td>
+
+                            <td>
+                                ${rs.toFixed(2)}
+                            </td>
+
+                            <td
+                                class="${changeClass}"
+                            >
+                                ${
+                                    change === null
+                                        ? "—"
+                                        : formatRSHistoryChange(
+                                            change
+                                          )
+                                }
+                            </td>
+
+                        </tr>
+                    `;
+                }
+            )
+            .join("");
+}
+
+
+function setRSHistoryValue(
+    elementId,
+    value
+) {
+
+    const element =
+        document.getElementById(
+            elementId
+        );
+
+    if (!element) {
+        return;
+    }
+
+    if (
+        value === null ||
+        value === undefined ||
+        !Number.isFinite(
+            Number(value)
+        )
+    ) {
+
+        element.textContent = "—";
+
+        element.className = "";
+
+        return;
+    }
+
+    element.textContent =
+        Number(value).toFixed(2);
+
+    element.className =
+        value > 0
+            ? "rs-history-positive"
+            : value < 0
+                ? "rs-history-negative"
+                : "";
+}
+
+
+function formatRSHistoryChange(
+    value
+) {
+
+    const sign =
+        value > 0
+            ? "+"
+            : "";
+
+    return (
+        sign +
+        Number(value).toFixed(2)
+    );
+}
+
+
+function formatRSHistoryDate(
+    dateString
+) {
+
+    const date =
+        new Date(
+            dateString +
+            "T00:00:00"
+        );
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return dateString;
+    }
+
+    return date.toLocaleDateString(
+        "en-IN",
+        {
+            day: "2-digit",
+            month: "short"
+        }
+    );
+}
+
+
+function renderRSHistoryChart(
+    history
+) {
+
+    const chart =
+        document.getElementById(
+            "rsHistoryChart"
+        );
+
+    if (!chart) {
+        return;
+    }
+
+    if (!history.length) {
+
+        chart.innerHTML =
+            "No RS history available.";
+
+        return;
+    }
+
+
+    const values =
+        history.map(
+            item =>
+                Number(item.rs)
+        );
+
+
+    const min =
+        Math.min(...values);
+
+    const max =
+        Math.max(...values);
+
+    const range =
+        Math.max(
+            max - min,
+            1
+        );
+
+
+    chart.innerHTML =
+        history
+            .map(
+                item => {
+
+                    const value =
+                        Number(item.rs);
+
+                    const height =
+                        15 +
+                        (
+                            (value - min) /
+                            range
+                        ) *
+                        70;
+
+
+                    return `
+                        <div
+                            class="rs-history-bar-wrap"
+                        >
+
+                            <span
+                                class="rs-history-bar-value"
+                                style="--bar-height:${height}%"
+                            >
+                                ${value.toFixed(1)}
+                            </span>
+
+                            <div
+                                class="rs-history-bar"
+                                style="height:${height}%"
+                            ></div>
+
+                            <span
+                                class="rs-history-bar-date"
+                            >
+                                ${formatRSHistoryDate(
+                                    item.date
+                                )}
+                            </span>
+
+                        </div>
+                    `;
+                }
+            )
+            .join("");
+}
+
+
+/* ESC closes popup */
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key === "Escape"
+        ) {
+            closeRSHistoryModal();
+        }
+
+    }
+);
+
+// Run scanner after data loading
+const originalLoadData =
+    loadData;
+
+loadData = async function() {
+
+    await originalLoadData();
+
+    renderMomentumVolumeScanners();
+
+};
 
 loadData();
